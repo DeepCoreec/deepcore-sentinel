@@ -96,7 +96,7 @@ class AgentPanel(ctk.CTkFrame):
         self._add_bubble('assistant',
             'Hola, soy Aria — tu agente de ciberseguridad. Puedo analizar procesos, '
             'conexiones de red, alertas y tomar acciones de protección en tiempo real.\n\n'
-            'Configura tu API Key (Anthropic, OpenAI o Google) para comenzar.'
+            'Configura tu API Key (Anthropic, OpenAI, Google o Kimi) para comenzar.'
         )
         self._update_auto_label()
 
@@ -111,7 +111,7 @@ class AgentPanel(ctk.CTkFrame):
         self._prov_var = ctk.StringVar(value=self._engine.provider)
         ctk.CTkOptionMenu(
             row1, variable=self._prov_var,
-            values=['anthropic', 'openai', 'gemini'],
+            values=['anthropic', 'openai', 'gemini', 'kimi'],
             width=130, height=32, corner_radius=6,
             fg_color=theme.C['surface1'], button_color=theme.C['surface2'],
             text_color=theme.C['text'], font=ctk.CTkFont(size=12),

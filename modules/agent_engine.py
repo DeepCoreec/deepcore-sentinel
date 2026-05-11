@@ -43,6 +43,10 @@ class AgentEngine:
             'models': ['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'],
             'default': 'gemini-2.0-flash',
         },
+        'kimi': {
+            'models': ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
+            'default': 'moonshot-v1-8k',
+        },
     }
 
     def __init__(self):
@@ -106,6 +110,8 @@ class AgentEngine:
             return self._chat_openai(messages, on_tool)
         elif p == 'gemini':
             return self._chat_gemini(messages, on_tool)
+        elif p == 'kimi':
+            return self._chat_kimi(messages, on_tool)
         raise ValueError(f"Proveedor no soportado: {p}")
 
     # ── Anthropic ─────────────────────────────────────────────────────────────
@@ -188,6 +194,62 @@ class AgentEngine:
                             headers=headers, json=body, timeout=60)
             if resp.status_code != 200:
                 raise Exception(f"OpenAI {resp.status_code}: {resp.text[:300]}")
+
+            data   = resp.json()
+            choice = data['choices'][0]
+            msg    = choice['message']
+            finish = choice['finish_reason']
+
+            if finish == 'stop':
+                return msg.get('content') or '[Sin respuesta]'
+
+            if finish == 'tool_calls':
+                msgs.append(msg)
+                for tc in msg.get('tool_calls', []):
+                    tname  = tc['function']['name']
+                    tinput = json.loads(tc['function'].get('arguments', '{}'))
+                    if on_tool:
+                        on_tool(tname, tinput)
+                    msgs.append({
+                        'role':         'tool',
+                        'tool_call_id': tc['id'],
+                        'content':      ejecutar_herramienta(tname, tinput),
+                    })
+            else:
+                return msg.get('content') or '[Sin respuesta]'
+
+        return "[Max iteraciones alcanzado]"
+
+    # ── Kimi (Moonshot AI — OpenAI-compatible) ────────────────────────────────
+
+    def _chat_kimi(self, messages: list, on_tool: callable) -> str:
+        headers = {
+            'Authorization': f'Bearer {self.api_key}',
+            'Content-Type':  'application/json',
+        }
+        oai_tools = [
+            {
+                'type': 'function',
+                'function': {
+                    'name':        t['name'],
+                    'description': t['description'],
+                    'parameters':  t['input_schema'],
+                }
+            }
+            for t in TOOLS
+        ]
+        msgs = [{'role': 'system', 'content': SYSTEM_PROMPT}] + list(messages)
+
+        for _ in range(12):
+            body = {
+                'model':    self.model,
+                'messages': msgs,
+                'tools':    oai_tools,
+            }
+            resp = _rq.post('https://api.moonshot.cn/v1/chat/completions',
+                            headers=headers, json=body, timeout=60)
+            if resp.status_code != 200:
+                raise Exception(f"Kimi {resp.status_code}: {resp.text[:300]}")
 
             data   = resp.json()
             choice = data['choices'][0]
