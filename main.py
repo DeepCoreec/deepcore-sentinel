@@ -142,6 +142,7 @@ class SentinelApp(ctk.CTk):
             ('archivos',  'Archivos'),
             ('alertas',   'Alertas'),
             ('reportes',  'Reportes'),
+            ('agente',    'Agente IA'),
         ]
 
         for key, label in nav_items:
@@ -241,6 +242,9 @@ class SentinelApp(ctk.CTk):
         elif key == 'reportes':
             from modules.reportes import ReportesPanel
             return ReportesPanel(parent, self._monitor)
+        elif key == 'agente':
+            from modules.agente import AgentPanel
+            return AgentPanel(parent, self._monitor)
 
     # ── Cierre limpio ──────────────────────────────────────────────────────────
 

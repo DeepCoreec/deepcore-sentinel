@@ -17,6 +17,7 @@ C = {
     'orange':  '#FB923C',
     'teal':    '#2DD4BF',
     'mauve':   '#C084FC',
+    'lavender':'#818CF8',
     'sentinel':'#E8002A',
 }
 

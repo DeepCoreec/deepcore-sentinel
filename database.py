@@ -65,6 +65,14 @@ def init_db():
             sha256  TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS agent_config (
+            id       INTEGER PRIMARY KEY,
+            provider TEXT    DEFAULT 'anthropic',
+            api_key  TEXT    DEFAULT '',
+            model    TEXT    DEFAULT 'claude-sonnet-4-6',
+            autonomy TEXT    DEFAULT 'manual'
+        );
+
         CREATE INDEX IF NOT EXISTS idx_events_ts   ON events (ts DESC);
         CREATE INDEX IF NOT EXISTS idx_alerts_ts   ON alerts (ts DESC);
         CREATE INDEX IF NOT EXISTS idx_alerts_stat ON alerts (status);
@@ -201,6 +209,28 @@ def get_file_events(limit: int = 200) -> list:
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+# ── AGENT CONFIG ──────────────────────────────────────────────────────────────
+
+def get_agent_config() -> dict:
+    conn = get_conn()
+    row  = conn.execute('SELECT * FROM agent_config LIMIT 1').fetchone()
+    conn.close()
+    if row:
+        return dict(row)
+    return {'provider': 'anthropic', 'api_key': '', 'model': 'claude-sonnet-4-6', 'autonomy': 'manual'}
+
+
+def save_agent_config(provider: str, api_key: str, model: str, autonomy: str):
+    conn = get_conn()
+    conn.execute('DELETE FROM agent_config')
+    conn.execute(
+        'INSERT INTO agent_config (provider, api_key, model, autonomy) VALUES (?,?,?,?)',
+        (provider, api_key, model, autonomy)
+    )
+    conn.commit()
+    conn.close()
 
 
 # ── ESTADÍSTICAS ──────────────────────────────────────────────────────────────
