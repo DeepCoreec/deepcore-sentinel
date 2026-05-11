@@ -1,0 +1,70 @@
+name: Build DeepCore Sentinel
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller `
+            --windowed `
+            --onedir `
+            --noconfirm `
+            --name "DeepCore Sentinel" `
+            --add-data "modules;modules" `
+            --hidden-import customtkinter `
+            --hidden-import matplotlib `
+            --hidden-import psutil `
+            --hidden-import watchdog `
+            --hidden-import reportlab `
+            main.py
+
+      - name: Create ZIP
+        run: |
+          Compress-Archive -Path "dist/DeepCore Sentinel" `
+            -DestinationPath "DeepCoreSentinel-Setup.zip"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: DeepCoreSentinel-Setup.zip
+          name: "DeepCore Sentinel ${{ github.ref_name }}"
+          body: |
+            ## DeepCore Sentinel ${{ github.ref_name }}
+
+            Plataforma de monitoreo y seguridad empresarial para Windows.
+
+            ### Instalación
+            1. Descarga y extrae el ZIP
+            2. Ejecuta `DeepCore Sentinel.exe`
+            3. Ingresa tu licencia DeepCore
+
+            ### Características
+            - Monitor de procesos en tiempo real
+            - Detección de comportamiento sospechoso
+            - Monitoreo de conexiones de red
+            - Integridad de archivos (watchdog)
+            - Centro de alertas
+            - Reportes PDF
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
