@@ -47,6 +47,22 @@ class AgentEngine:
             'models': ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
             'default': 'moonshot-v1-8k',
         },
+        'deepseek': {
+            'models': ['deepseek-chat', 'deepseek-reasoner'],
+            'default': 'deepseek-chat',
+        },
+        'groq': {
+            'models': ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768'],
+            'default': 'llama-3.3-70b-versatile',
+        },
+        'mistral': {
+            'models': ['mistral-large-latest', 'mistral-small-latest', 'open-mistral-7b'],
+            'default': 'mistral-large-latest',
+        },
+        'grok': {
+            'models': ['grok-3', 'grok-3-mini', 'grok-2'],
+            'default': 'grok-3',
+        },
     }
 
     def __init__(self):
@@ -112,6 +128,18 @@ class AgentEngine:
             return self._chat_gemini(messages, on_tool)
         elif p == 'kimi':
             return self._chat_kimi(messages, on_tool)
+        elif p == 'deepseek':
+            return self._chat_oai_compat('https://api.deepseek.com/v1/chat/completions',
+                                         'DeepSeek', messages, on_tool)
+        elif p == 'groq':
+            return self._chat_oai_compat('https://api.groq.com/openai/v1/chat/completions',
+                                         'Groq', messages, on_tool)
+        elif p == 'mistral':
+            return self._chat_oai_compat('https://api.mistral.ai/v1/chat/completions',
+                                         'Mistral', messages, on_tool)
+        elif p == 'grok':
+            return self._chat_oai_compat('https://api.x.ai/v1/chat/completions',
+                                         'Grok', messages, on_tool)
         raise ValueError(f"Proveedor no soportado: {p}")
 
     # ── Anthropic ─────────────────────────────────────────────────────────────
@@ -220,7 +248,57 @@ class AgentEngine:
 
         return "[Max iteraciones alcanzado]"
 
-    # ── Kimi (Moonshot AI — OpenAI-compatible) ────────────────────────────────
+    # ── Genérico OpenAI-compatible (Kimi, DeepSeek, Groq, Mistral, Grok) ────────
+
+    def _chat_oai_compat(self, url: str, nombre: str,
+                         messages: list, on_tool: callable) -> str:
+        headers = {
+            'Authorization': f'Bearer {self.api_key}',
+            'Content-Type':  'application/json',
+        }
+        oai_tools = [
+            {
+                'type': 'function',
+                'function': {
+                    'name':        t['name'],
+                    'description': t['description'],
+                    'parameters':  t['input_schema'],
+                }
+            }
+            for t in TOOLS
+        ]
+        msgs = [{'role': 'system', 'content': SYSTEM_PROMPT}] + list(messages)
+
+        for _ in range(12):
+            body = {'model': self.model, 'messages': msgs, 'tools': oai_tools}
+            resp = _rq.post(url, headers=headers, json=body, timeout=60)
+            if resp.status_code != 200:
+                raise Exception(f"{nombre} {resp.status_code}: {resp.text[:300]}")
+
+            data   = resp.json()
+            choice = data['choices'][0]
+            msg    = choice['message']
+            finish = choice['finish_reason']
+
+            if finish == 'stop':
+                return msg.get('content') or '[Sin respuesta]'
+
+            if finish == 'tool_calls':
+                msgs.append(msg)
+                for tc in msg.get('tool_calls', []):
+                    tname  = tc['function']['name']
+                    tinput = json.loads(tc['function'].get('arguments', '{}'))
+                    if on_tool:
+                        on_tool(tname, tinput)
+                    msgs.append({
+                        'role':         'tool',
+                        'tool_call_id': tc['id'],
+                        'content':      ejecutar_herramienta(tname, tinput),
+                    })
+            else:
+                return msg.get('content') or '[Sin respuesta]'
+
+        return "[Max iteraciones alcanzado]"
 
     def _chat_kimi(self, messages: list, on_tool: callable) -> str:
         headers = {
