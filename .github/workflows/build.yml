@@ -69,3 +69,11 @@ jobs:
             - Reportes PDF
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publicar instalador en deepcore-releases (público)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          gh release upload latest DeepCoreSentinel-Setup.zip --repo DeepCoreec/deepcore-releases --clobber
+
