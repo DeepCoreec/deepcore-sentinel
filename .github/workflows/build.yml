@@ -38,6 +38,7 @@ jobs:
             --hidden-import psutil `
             --hidden-import watchdog `
             --hidden-import reportlab `
+            --collect-all requests `
             main.py
 
       - name: Create ZIP
